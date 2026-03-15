@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="icon" type="image/png" href="https://i.postimg.cc/856Y9Y9z/logo-nz.png">
+    <title>NzTiers | Official</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+        :root { --bg: #020408; --card: #0d1117; --accent: #3b82f6; --discord: #5865F2; }
+        
+        body { background: var(--bg); color: #ffffff; font-family: 'Plus Jakarta Sans', sans-serif; overflow-x: hidden; margin: 0; }
+        #bg-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+
+        @keyframes modalPop {
+            0% { opacity: 0; transform: scale(0.9) translateY(30px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-content { animation: modalPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        @keyframes floating {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .mode-btn { 
+            background: #0d1117; border: 1px solid rgba(255, 255, 255, 0.1); 
+            min-width: 110px; padding: 16px 12px; border-radius: 999px; 
+            text-align: center; flex-shrink: 0; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            cursor: pointer; animation: floating 4s ease-in-out infinite;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        }
+
+        .mode-btn:hover { border-color: #ffffff; box-shadow: 0 0 20px rgba(255, 255, 255, 0.4); background: rgba(255, 255, 255, 0.05); transform: scale(1.1) translateY(-10px); }
+
+        .mode-btn.active { background: white !important; border-color: white; animation: none; transform: scale(1.05); }
+        .mode-btn.active span, .mode-btn.active .icon-box { color: black !important; }
+
+        .rank-card { background: rgba(13, 17, 23, 0.85); backdrop-filter: blur(5px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; display: flex; align-items: center; padding: 16px 20px; margin-bottom: 12px; cursor: pointer; transition: all 0.3s ease; }
+        .rank-card:hover { transform: scale(1.03) translateX(8px); border-color: var(--accent); box-shadow: 0 0 35px rgba(59, 130, 246, 0.25); }
+
+        .badge { font-weight: 800; padding: 4px 10px; border-radius: 7px; font-size: 10px; text-transform: uppercase; transition: all 0.3s ease; }
+        .t-ht1, .t-lt1 { background: #ffff55; color: #000; box-shadow: 0 0 15px rgba(255, 255, 85, 0.6); }
+        .t-ht2, .t-lt2 { background: #ff5555; color: #fff; box-shadow: 0 0 15px rgba(255, 85, 85, 0.6); }
+        .t-ht3, .t-lt3 { background: #ffaa00; color: #000; box-shadow: 0 0 15px rgba(255, 170, 0, 0.6); }
+        .t-ht4, .t-lt4 { background: #55ff55; color: #000; box-shadow: 0 0 15px rgba(85, 255, 85, 0.6); }
+        .t-ht5, .t-lt5 { background: #f1f5f9; color: #000; box-shadow: 0 0 12px rgba(255, 255, 255, 0.3); }
+
+        .tier-emoji { font-size: 1.5rem; }
+        .tier-columns-container { display: flex; gap: 1.25rem; overflow-x: auto; padding-bottom: 2rem; justify-content: flex-start; }
+        .tier-col { min-width: 220px; background: rgba(13, 17, 23, 0.6); backdrop-filter: blur(10px); border-radius: 2.5rem; padding: 18px; border: 1px solid rgba(255,255,255,0.05); }
+
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.92); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="p-6 sm:p-12">
+
+    <canvas id="bg-canvas"></canvas>
+
+    <div class="max-w-7xl mx-auto min-h-screen flex flex-col">
+        <header class="text-center pb-36 pt-12 rounded-[3.5rem] bg-gradient-to-b from-blue-900/20 to-transparent border border-white/5 relative z-0">
+            <h1 class="text-6xl sm:text-8xl font-black italic uppercase tracking-tighter mb-8">Nz<span class="text-blue-600">Tiers</span></h1>
+            <div class="flex flex-row items-center justify-center gap-4 px-4 relative z-10">
+                <a href="https://discord.gg/efNZHSF3" target="_blank" class="bg-[#5865F2] px-8 py-4 rounded-full text-[10px] font-black uppercase tracking-widest transition-all hover:scale-105">Join Discord</a>
+                <button onclick="handleAdminClick()" class="bg-[#161b22] hover:bg-white/10 px-6 py-4 rounded-full text-gray-400 text-[10px] font-bold uppercase border border-white/10 transition-all">Management 🔒</button>
+            </div>
+        </header>
+
+        <div class="flex overflow-x-auto gap-4 -mt-16 mb-16 no-scrollbar pb-10 px-6 justify-start sm:justify-center items-center relative z-50">
+            <div id="btn-all" onclick="setFilter('all')" class="mode-btn active"><div class="icon-box">🏆</div><span class="font-black text-[9px] uppercase">All</span></div>
+            <script>
+                const gmNames = ['Vanilla', 'UHC', 'Pot', 'NethOp', 'SMP', 'Sword', 'Mace', 'Axe'];
+                const icons = ['💠','🍊','🍷','👾','🛡️','⚔️','🪕','🪓'];
+                gmNames.forEach((n, i) => { document.write(`<div id="btn-${i}" onclick="setFilter('${i}')" class="mode-btn"><div class="icon-box">${icons[i]}</div><span class="font-black text-[9px] uppercase">${n}</span></div>`); });
+            </script>
+        </div>
+
+        <div id="main-content" class="relative z-10 flex-grow"></div>
+
+        <footer class="mt-20 mb-10 text-center relative z-10">
+            <div class="inline-block bg-white/5 backdrop-blur-md border border-white/10 px-8 py-4 rounded-3xl">
+                <p class="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500 mb-2">Developers</p>
+                <div class="flex items-center justify-center gap-4 text-xs font-bold text-gray-400">
+                    <span class="hover:text-white transition-colors">Nick0laa</span>
+                    <span class="opacity-20">•</span>
+                    <span class="hover:text-white transition-colors">tedi180213</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <div id="playerModal" class="modal-overlay hidden" onclick="closePlayerModal()">
+        <div class="modal-content bg-[#0d1117] border border-blue-500/20 p-10 rounded-[3rem] w-full max-w-md text-center shadow-2xl" onclick="event.stopPropagation()">
+            <img id="mAvatar" src="" class="w-28 h-28 rounded-[2rem] mx-auto mb-6 border-4 border-white/5">
+            <h2 id="mName" class="text-4xl font-black uppercase italic tracking-tighter mb-2"></h2>
+            <div id="mStatus" class="inline-block px-5 py-2 rounded-full text-[11px] font-black uppercase tracking-widest mb-8 shadow-lg"></div>
+            <div class="text-left space-y-3 mb-8 max-h-72 overflow-y-auto no-scrollbar" id="mTiers"></div>
+            <div class="border-t border-white/5 pt-6 text-4xl font-black text-blue-500 italic" id="mPoints"></div>
+            <button onclick="closePlayerModal()" class="mt-8 text-gray-600 font-bold uppercase text-[11px]">Close Record</button>
+        </div>
+    </div>
+
+    <div id="loginModal" class="modal-overlay hidden" onclick="closeLogin()">
+        <div class="modal-content bg-[#0d1117] p-8 rounded-[3rem] border border-gray-800 w-full max-w-sm text-center" onclick="event.stopPropagation()">
+            <input type="password" id="adminPassInput" placeholder="••••" class="w-full bg-[#161b22] border border-gray-800 p-5 rounded-2xl text-center text-white mb-4 outline-none text-xl">
+            <div id="loginError" class="text-red-600 font-black text-xl mb-4 hidden">ГРЕШНА ПАРОЛА БУБКА</div>
+            <button onclick="attemptLogin()" class="w-full bg-blue-600 py-4 rounded-2xl font-black uppercase text-xs">Unlock Panel</button>
+        </div>
+    </div>
+
+    <div id="adminOverlay" class="modal-overlay hidden">
+        <div class="modal-content bg-[#0d1117] border border-gray-800 p-8 rounded-[3rem] w-full max-w-lg max-h-[85vh] overflow-y-auto no-scrollbar">
+            <div class="flex justify-between items-center mb-8"><h2 class="font-black text-blue-500 text-sm uppercase">Management</h2><button onclick="closeAdmin()" class="text-gray-600 text-xs font-bold">CLOSE</button></div>
+            <div class="space-y-4">
+                <input type="text" id="pName" placeholder="Minecraft Username" class="w-full bg-[#161b22] border border-gray-800 p-4 rounded-2xl text-white outline-none">
+                <div class="grid grid-cols-2 gap-3">
+                    <select id="gmSelect" class="bg-[#161b22] border border-gray-800 p-4 rounded-2xl text-white outline-none text-sm"><script>gmNames.forEach((n, i) => document.write(`<option value="${i}">${n}</option>`));</script></select>
+                    <select id="tierSelect" class="bg-[#161b22] border border-gray-800 p-4 rounded-2xl text-white outline-none text-sm">
+                        <option value="None">None</option><script>['HT1','LT1','HT2','LT2','HT3','LT3','HT4','LT4','HT5','LT5'].forEach(t => document.write(`<option value="${t}">${t}</option>`));</script>
+                    </select>
+                </div>
+                <button onclick="savePlayer()" class="w-full bg-blue-600 py-5 rounded-2xl font-black uppercase text-xs">Update Database</button>
+                <div id="admin-delete-list" class="pt-8"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // BACKGROUND ANIMATION
+        const canvas = document.getElementById('bg-canvas'); const ctx = canvas.getContext('2d'); let particles = [];
+        function initParticles() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; particles = []; for (let i = 0; i < 50; i++) { particles.push({ x: Math.random() * canvas.width, y: Math.random() * canvas.height, size: Math.random() * 3 + 1, speedX: (Math.random() - 0.5) * 0.5, speedY: (Math.random() - 0.5) * 0.5, opacity: Math.random() * 0.5 }); } }
+        function animate() { ctx.clearRect(0, 0, canvas.width, canvas.height); particles.forEach(p => { p.x += p.speedX; p.y += p.speedY; if (p.x < 0) p.x = canvas.width; if (p.x > canvas.width) p.x = 0; if (p.y < 0) p.y = canvas.height; if (p.y > canvas.height) p.y = 0; ctx.fillStyle = `rgba(255, 255, 255, ${p.opacity})`; ctx.fillRect(p.x, p.y, p.size, p.size); }); requestAnimationFrame(animate); }
+        window.addEventListener('resize', initParticles); initParticles(); animate();
+
+        // FIREBASE LOGIC
+        const firebaseConfig = {
+            apiKey: "AIzaSyCD2jkLp8Gw6-JpI4_ctF7m9Idpu8UtS3k",
+            authDomain: "nztiers13.firebaseapp.com",
+            databaseURL: "https://nztiers13-default-rtdb.us-central1.firebasedatabase.app",
+            projectId: "nztiers13",
+            storageBucket: "nztiers13.firebaseastorage.app",
+            messagingSenderId: "555935967876",
+            appId: "1:555935967876:web:bbf366238c797be73070d1"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database().ref('players');
+        let players = [], filter = 'all';
+        const tierWeights = { 'HT1': 22, 'LT1': 21, 'HT2': 20, 'LT2': 17, 'HT3': 16, 'LT3': 12, 'HT4': 10, 'LT4': 6, 'HT5': 5, 'LT5': 3, 'None': 0 };
+
+        db.on('value', s => { const data = s.val(); players = data ? Object.entries(data).map(([id, val]) => ({id, ...val})) : []; render(); renderAdminDeleteList(); });
+
+        function calculateTotalPoints(p) { return p.tiers.reduce((s, t) => s + tierWeights[t], 0); }
+
+        function getSkillLevel(pts) {
+            if (pts >= 22) return { text: "MN DOBUR 👑", color: "bg-purple-600 shadow-purple-500/50" };
+            if (pts >= 16) return { text: "DOBUR 🔥", color: "bg-green-600 shadow-green-500/50" };
+            if (pts >= 11) return { text: "STAASH 👍", color: "bg-blue-600 shadow-blue-500/50" };
+            if (pts >= 3) return { text: "SLAB SI 📉", color: "bg-gray-700" };
+            return { text: "NEWBIE", color: "bg-black" };
+        }
+
+        async function savePlayer() {
+            const name = document.getElementById('pName').value.trim();
+            const gmIdx = document.getElementById('gmSelect').value;
+            const newTier = document.getElementById('tierSelect').value;
+            const webhookURL = "https://discord.com/api/webhooks/1482695790962151486/-7IX54PVLRu5Jmm1Ct3FfDa1pIuIa6MchNZCPhVJgRZ2G1LyVLz1NfNxti2X0pNAbNwR"; 
+
+            if (!name) return;
+            const existing = players.find(p => p.name.toLowerCase() === name.toLowerCase());
+            let oldTier = "None";
+
+            if (existing) { 
+                oldTier = existing.tiers[gmIdx] || "None";
+                let nt = [...existing.tiers]; nt[gmIdx] = newTier; 
+                db.child(existing.id).update({ tiers: nt }); 
+            } else { 
+                let tiers = new Array(8).fill('None'); tiers[gmIdx] = newTier; 
+                db.push({ name, tiers }); 
+            }
+
+            if (webhookURL.startsWith("https://")) {
+                const tierColors = { 'HT1': 16776960, 'LT1': 16776960, 'HT2': 16733525, 'LT2': 16733525, 'HT3': 16755200, 'LT3': 16755200, 'HT4': 5635925, 'LT4': 5635925, 'HT5': 15856121, 'LT5': 15856121 };
+                const payload = {
+                    content: "@everyone",
+                    embeds: [{
+                        title: "🏆 НОВА ТИЪР АКТУАЛИЗАЦИЯ",
+                        description: `Статистиката на играч **${name}** беше обновена!`,
+                        color: tierColors[newTier] || 3447003,
+                        thumbnail: { url: `https://mc-heads.net/body/${name}` },
+                        fields: [
+                            { name: "👤 Играч", value: `**${name}**`, inline: true },
+                            { name: "🎮 Гейммод", value: gmNames[gmIdx], inline: true },
+                            { name: "\u200b", value: "\u200b", inline: false },
+                            { name: "🔴 Стар Тиър", value: `\`${oldTier}\``, inline: true },
+                            { name: "🟢 Нов Тиър", value: `**${newTier}**`, inline: true }
+                        ],
+                        footer: { text: "NzTiers System" },
+                        timestamp: new Date()
+                    }]
+                };
+                fetch(webhookURL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            }
+            document.getElementById('pName').value = "";
+        }
+
+        function render() {
+            const container = document.getElementById('main-content');
+            if (filter === 'all') {
+                const sorted = [...players].sort((a, b) => calculateTotalPoints(b) - calculateTotalPoints(a));
+                container.innerHTML = `<div class="max-w-4xl mx-auto">${sorted.map((p, i) => calculateTotalPoints(p) === 0 ? '' : `<div class="rank-card" onclick="showPlayerInfo('${p.id}')"><div class="w-10 text-xl font-black italic opacity-10 mr-4">${i+1}</div><img src="https://mc-heads.net/avatar/${p.name}" class="w-14 h-14 rounded-2xl mr-6 shadow-xl"><div class="flex-1 font-black text-lg uppercase truncate tracking-tight">${p.name}</div><div class="flex gap-5 ml-4">${p.tiers.map((t, idx) => t !== 'None' ? `<div class="flex flex-col items-center"><span class="tier-emoji mb-1">${icons[idx]}</span><span class="badge t-${t.toLowerCase()}">${t}</span></div>` : '').join('')}</div></div>`).join('')}</div>`;
+            } else {
+                const filtered = players.filter(p => p.tiers[filter] !== 'None').sort((a, b) => tierWeights[b.tiers[filter]] - tierWeights[a.tiers[filter]]);
+                container.innerHTML = `<div class="tier-columns-container no-scrollbar">${[1,2,3,4,5].map(tNum => `<div class="tier-col"><div class="text-center font-black uppercase text-xs mb-6 italic tracking-[0.2em]">Tier ${tNum}</div>${filtered.filter(p => p.tiers[filter].includes(tNum)).map(p => `<div onclick="showPlayerInfo('${p.id}')" class="flex items-center gap-4 bg-[#161b22] p-4 rounded-2xl mb-3 border border-white/5 shadow-sm hover:scale-105 transition-all cursor-pointer"><img src="https://mc-heads.net/avatar/${p.name}" class="w-9 h-9 rounded-xl"><div class="flex-1 truncate font-bold text-xs uppercase">${p.name}</div><div class="badge t-${p.tiers[filter].toLowerCase()}">${p.tiers[filter]}</div></div>`).join('')}</div>`).join('')}</div>`;
+            }
+        }
+
+        function showPlayerInfo(pId) {
+            const p = players.find(x => x.id === pId); 
+            const pts = calculateTotalPoints(p);
+            const level = getSkillLevel(pts);
+            document.getElementById('mAvatar').src = `https://mc-heads.net/avatar/${p.name}`;
+            document.getElementById('mName').innerText = p.name;
+            document.getElementById('mPoints').innerText = pts + " PTS";
+            const status = document.getElementById('mStatus');
+            status.innerText = level.text;
+            status.className = `inline-block px-5 py-2 rounded-full text-[11px] font-black uppercase tracking-widest mb-8 shadow-lg ${level.color}`;
+            document.getElementById('mTiers').innerHTML = p.tiers.map((t, i) => t !== 'None' ? `<div class="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/5 mb-2"><span class="text-xs font-bold opacity-60 uppercase">${icons[i]} ${gmNames[i]}</span><span class="badge t-${t.toLowerCase()}">${t}</span></div>` : '').join('');
+            document.getElementById('playerModal').classList.remove('hidden');
+        }
+
+        function setFilter(m) { filter = m; document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active')); document.getElementById('btn-' + m).classList.add('active'); render(); }
+        
+        function attemptLogin() { 
+            const input = document.getElementById('adminPassInput').value;
+            const errorMsg = document.getElementById('loginError');
+            if(input === "guli67") { 
+                sessionStorage.setItem('isAdmin', 'true'); 
+                document.getElementById('loginModal').classList.add('hidden'); 
+                document.getElementById('adminOverlay').classList.remove('hidden'); 
+                errorMsg.classList.add('hidden');
+            } else {
+                errorMsg.classList.remove('hidden');
+            }
+        }
+
+        function handleAdminClick() { 
+            if (sessionStorage.getItem('isAdmin') === 'true') {
+                document.getElementById('adminOverlay').classList.remove('hidden'); 
+            } else {
+                document.getElementById('loginModal').classList.remove('hidden'); 
+            }
+        }
+
+        function renderAdminDeleteList() { document.getElementById('admin-delete-list').innerHTML = players.map(p => `<div class="flex justify-between bg-white/5 p-4 rounded-2xl text-[11px] font-bold uppercase mb-2"><span>${p.name}</span><button onclick="db.child('${p.id}').remove()" class="text-red-500 font-black px-2">✕</button></div>`).join(''); }
+        function closePlayerModal() { document.getElementById('playerModal').classList.add('hidden'); }
+        function closeLogin() { document.getElementById('loginModal').classList.add('hidden'); document.getElementById('loginError').classList.add('hidden'); }
+        function closeAdmin() { document.getElementById('adminOverlay').classList.add('hidden'); }
+    </script>
+</body>
+</html>
